@@ -1,22 +1,20 @@
-# Project Version History [ to change to reflect new files ]
+# Project Version History 8-8-25
 
-## v1_mvp
-- Initial MVP with WebRTC + mock SER/LLM
+## v1_initial mvp
+- to change
 
-## v2_add-ser-fer
-- Added real SER/FER model loaders (stubbed weights)
+## v2 add_full backend and webrtc package
+- to change
 
-## v3_quant-gpu
-- Integrated quantized GPU model loading (Gemma, Wav2Vec2, AffectNet placeholders)
+## v3 real model integration and gpu template package
+- to change
 
-## v4_mobile-support
-- Added Capacitor mobile client hooks
+## v4 ui and cloud fallback package
+- to change
 
-## v5_full-system
-- Full desktop + mobile integration, cloud fallback
+## v5 metrics monitoring and deployment package
+- to change
 
-## v6_final
-- Optimized final build, monitoring, alerting, docs
 
 ```
 v1_mvp --> v2_add-ser-fer --> v3_quant-gpu --> v4_mobile-support --> v5_full-system --> v6_final
