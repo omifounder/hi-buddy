@@ -1,4 +1,4 @@
-# Project Version History
+# Project Version History [ to change to reflect new files ]
 
 ## v1_mvp
 - Initial MVP with WebRTC + mock SER/LLM
