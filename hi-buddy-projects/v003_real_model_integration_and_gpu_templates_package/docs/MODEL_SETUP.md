@@ -1,0 +1,1 @@
+v003: Instructions for placing quantized weights and setting HF_TOKEN; includes bitsandbytes notes.

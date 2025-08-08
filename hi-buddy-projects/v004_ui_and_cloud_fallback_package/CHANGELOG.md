@@ -1,0 +1,1 @@
+v004: UI mockups (desktop & mobile), client enhancements, and cloud fallback configuration added.

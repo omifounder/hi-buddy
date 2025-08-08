@@ -1,0 +1,3 @@
+#!/bin/bash
+# v005 deploy script placeholder
+echo Deploying v005...

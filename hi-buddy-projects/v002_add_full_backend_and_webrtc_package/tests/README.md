@@ -1,0 +1,1 @@
+Run pytest on endpoints after starting server. WebRTC signaling is stubbed for now.

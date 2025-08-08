@@ -1,0 +1,26 @@
+[
+    {
+        "version": "v002",
+        "filename": "v002_add_full_backend_and_webrtc_package.zip",
+        "timestamp": "2025-08-08T10:00:00",
+        "summary": "Full backend with WebRTC stub & model hooks."
+    },
+    {
+        "version": "v003",
+        "filename": "v003_real_model_integration_and_gpu_templates_package.zip",
+        "timestamp": "2025-08-08T11:00:00",
+        "summary": "Real model integration scaffolding & GPU Docker templates."
+    },
+    {
+        "version": "v004",
+        "filename": "v004_ui_and_cloud_fallback_package.zip",
+        "timestamp": "2025-08-08T12:00:00",
+        "summary": "UI mockups (desktop & mobile) + cloud fallback config."
+    },
+    {
+        "version": "v005",
+        "filename": "v005_metrics_monitoring_and_deployment_package.zip",
+        "timestamp": "2025-08-08T13:00:00",
+        "summary": "Metrics, monitoring, deployment scripts & ops runbook."
+    }
+]

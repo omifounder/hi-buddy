@@ -1,0 +1,1 @@
+v003: Integrated model loader scaffolding, GPU Dockerfile template, and model setup docs. Stubs placeholder for real weights.
