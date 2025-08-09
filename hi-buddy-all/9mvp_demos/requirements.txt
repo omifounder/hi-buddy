@@ -1,0 +1,13 @@
+
+fastapi
+uvicorn[standard]
+aiortc
+transformers>=4.30.0
+torch
+soundfile
+librosa
+numpy
+av
+TTS
+opencv-python
+fer

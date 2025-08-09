@@ -1,0 +1,1 @@
+Mobile Capacitor project placeholder. Use web/ as starting point.

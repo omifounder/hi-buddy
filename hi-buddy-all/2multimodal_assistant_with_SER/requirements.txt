@@ -1,0 +1,6 @@
+fastapi
+aiohttp
+transformers
+torch
+soundfile
+librosa

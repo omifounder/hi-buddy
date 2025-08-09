@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Mobile WebRTC Wrapper - Demo</title>
+<style>body{font-family:system-ui,Arial;margin:12px}button{padding:10px}#log{white-space:pre-wrap;background:#f3f3f3;padding:8px;border-radius:6px}</style>
+</head>
+<body>
+  <h3>Mobile WebRTC Wrapper (Demo)</h3>
+  <p>This lightweight client captures mic & camera and demonstrates WebRTC negotiation with a server offer endpoint.</p>
+  <div>
+    <button id="startBtn">Start Call</button>
+    <button id="hangupBtn" disabled>Hang Up</button>
+  </div>
+  <p>Status: <span id="status">idle</span></p>
+  <div id="log"></div>
+<script>
+const startBtn = document.getElementById('startBtn'), hangupBtn = document.getElementById('hangupBtn');
+const statusEl = document.getElementById('status'), logEl = document.getElementById('log');
+let pc, localStream;
+
+function log(msg){ logEl.textContent = new Date().toISOString().slice(11,23) + ' ' + msg + '\n' + logEl.textContent; }
+
+startBtn.onclick = async () => {
+  startBtn.disabled = true; hangupBtn.disabled = false;
+  statusEl.textContent = 'starting...';
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
+    pc = new RTCPeerConnection();
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    pc.ontrack = (e) => { log('remote track received'); };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    // send offer to server /offer endpoint
+    const resp = await fetch('/offer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type})});
+    const ans = await resp.json();
+    await pc.setRemoteDescription(ans);
+    statusEl.textContent = 'connected (demo)';
+    log('call established (demo)');
+  } catch (e) {
+    log('start error: ' + e);
+    statusEl.textContent = 'error';
+    startBtn.disabled = false; hangupBtn.disabled = true;
+  }
+};
+
+hangupBtn.onclick = () => {
+  if(pc){ pc.getSenders().forEach(s => s.track && s.track.stop()); pc.close(); pc = null; }
+  if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  statusEl.textContent = 'idle'; startBtn.disabled = false; hangupBtn.disabled = true; log('call ended');
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset='utf-8'/><title>Live SER Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>body{font-family:Arial;margin:12px}canvas{max-width:600px}</style>
+</head><body>
+<h3>Live SER Control Panel (Client-side TFJS optional)</h3>
+<select id="modelSelect"><option value="ser_mvp">MVP</option><option value="ser_full">Full</option></select>
+<button id="start">Start</button><button id="stop" disabled>Stop</button>
+<div id="status">idle</div>
+<canvas id="barChart"></canvas>
+<canvas id="lineChart"></canvas>
+<script>
+const EMOTIONS = ['neutral','happy','sad','angry','fear','disgust','surprise'];
+let barChart,lineChart,timeIndex=0,model=null,audioCtx,proc,stream,buff=[];
+
+function initCharts(){ const b=document.getElementById('barChart').getContext('2d'); barChart=new Chart(b,{type:'bar',data:{labels:EMOTIONS,datasets:[{label:'Probability',data:Array(EMOTIONS.length).fill(0),backgroundColor:'rgba(54,162,235,0.6)'}]},options:{scales:{y:{min:0,max:1}}}}); const l=document.getElementById('lineChart').getContext('2d'); lineChart=new Chart(l,{type:'line',data:{labels:[],datasets:[{label:'Max Confidence',data:[],borderColor:'rgba(255,99,132,1)',fill:false}]},options:{scales:{y:{min:0,max:1}}}}); }
+async function loadModel(name){ try{ model = await tf.loadGraphModel('/models/'+name+'/model.json'); console.log('model loaded',name);}catch(e){console.warn('tfjs load failed',e); model=null;} }
+
+async function predictFloat32(float32Array){
+  if(!model) return null;
+  const arr = float32Array.slice(0,16000);
+  const t = tf.tensor(arr).reshape([1,16000,1]);
+  const out = model.predict(t);
+  const data = await out.data();
+  return Array.from(data);
+}
+
+document.getElementById('start').onclick = async ()=>{
+  document.getElementById('start').disabled=true; document.getElementById('stop').disabled=false;
+  stream = await navigator.mediaDevices.getUserMedia({audio:true}); audioCtx = new (window.AudioContext||window.webkitAudioContext)(); const src = audioCtx.createMediaStreamSource(stream);
+  proc = audioCtx.createScriptProcessor(4096,1,1); src.connect(proc); proc.connect(audioCtx.destination);
+  proc.onaudioprocess = async (e)=>{ const d=e.inputBuffer.getChannelData(0); buff.push(new Float32Array(d)); const total=buff.reduce((s,b)=>s+b.length,0); if(total>=audioCtx.sampleRate*1.0){ const out = new Float32Array(total); let p=0; for(const b of buff){ out.set(b,p); p+=b.length;} buff=[]; const scores = await predictFloat32(out); if(scores){ const max = Math.max(...scores); const idx = scores.indexOf(max); document.getElementById('status').innerText = EMOTIONS[idx] + ' ('+(max*100).toFixed(1)+'%)'; barChart.data.datasets[0].data = scores; barChart.update(); lineChart.data.labels.push(timeIndex++); lineChart.data.datasets[0].data.push(max); if(lineChart.data.labels.length>20){lineChart.data.labels.shift(); lineChart.data.datasets[0].data.shift();} lineChart.update(); } } };
+  loadModel(document.getElementById('modelSelect').value);
+};
+
+document.getElementById('stop').onclick = ()=>{ if(proc){ proc.disconnect(); proc=null;} if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null;} document.getElementById('start').disabled=false; document.getElementById('stop').disabled=true; };
+initCharts();
+</script></body></html>

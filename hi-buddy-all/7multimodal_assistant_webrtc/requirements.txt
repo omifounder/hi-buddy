@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+aiortc
+transformers
+torch
+soundfile
+librosa
+TTS
+numpy
+av
+uvloop

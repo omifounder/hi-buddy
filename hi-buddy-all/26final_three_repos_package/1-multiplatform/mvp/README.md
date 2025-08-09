@@ -1,0 +1,1 @@
+Multiplatform MVP: simple demo using shared model stubs.

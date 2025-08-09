@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>WebRTC Live SER</title></head><body>
+<h2>WebRTC Live SER</h2>
+<video id="localVideo" autoplay muted playsinline style="width:480px;height:360px;border:1px solid #ccc"></video>
+<div>
+  <button id="startBtn">Start WebRTC</button>
+  <button id="speakBtn">Server speak</button>
+  <div>Detected speech-emotion: <span id="serLabel">-</span> (<span id="serConf">-</span>)</div>
+</div>
+<script>
+let pc=null, dc=null, localStream=null;
+document.getElementById('startBtn').onclick = async () => {
+  if (pc) return;
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('client-data');
+  dc.onopen = ()=>console.log('DC open');
+  dc.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'ser_result') {
+        document.getElementById('serLabel').innerText = msg.label;
+        document.getElementById('serConf').innerText = (msg.confidence||0).toFixed(2);
+      }
+    } catch(e){console.warn(e);}
+  };
+  pc.ontrack = ev => {
+    const aud = document.createElement('audio');
+    aud.autoplay = true;
+    aud.srcObject = ev.streams[0];
+    document.body.appendChild(aud);
+  };
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true, video:true});
+  document.getElementById('localVideo').srcObject = localStream;
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type, client_id:'c1'})});
+  const ans = await resp.json();
+  await pc.setRemoteDescription(ans);
+  console.log('WebRTC established');
+};
+document.getElementById('speakBtn').onclick = () => {
+  if (!dc || dc.readyState !== 'open') return alert('DataChannel not ready');
+  const text = prompt('Text to speak','Hello — this is your assistant.');
+  dc.send(JSON.stringify({type:'speak', text: text}));
+};
+</script>
+</body></html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset='utf-8'/><title>Hello-World Demo Client</title>
+<style>body{font-family:Arial;margin:12px}button{padding:8px}#log{white-space:pre-wrap;background:#f7f7f7;padding:8px;border-radius:6px}</style></head>
+<body>
+  <h3>Hello-World Mode Demo</h3>
+  <p>This client tests the lightweight pipeline: capture 1s audio and POST to /infer_wav.</p>
+  <button id="start">Start Capture</button> <button id="stop" disabled>Stop</button>
+  <div id="status">idle</div>
+  <pre id="log"></pre>
+<script>
+let stream, audioCtx, proc, buffers=[];
+const logEl = document.getElementById('log'), status = document.getElementById('status');
+function log(m){ logEl.textContent = new Date().toISOString() + ' ' + m + "\n" + logEl.textContent; }
+function floatToWavBuffer(float32Array, sampleRate){
+  const l = float32Array.length;
+  const buffer = new ArrayBuffer(44 + l*2);
+  const view = new DataView(buffer);
+  function writeString(view, offset, string){ for(let i=0;i<string.length;i++) view.setUint8(offset+i, string.charCodeAt(i)); }
+  writeString(view,0,'RIFF'); view.setUint32(4,36 + l*2, true); writeString(view,8,'WAVE'); writeString(view,12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true); view.setUint32(28,sampleRate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true); writeString(view,36,'data');
+  view.setUint32(40,l*2,true); let offset=44;
+  for(let i=0;i<l;i++){ let s=Math.max(-1,Math.min(1,float32Array[i])); view.setInt16(offset, s<0? s*0x8000 : s*0x7FFF, true); offset+=2; }
+  return buffer;
+}
+document.getElementById('start').onclick = async ()=>{
+  stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
+  proc = audioCtx.createScriptProcessor(4096,1,1);
+  src.connect(proc); proc.connect(audioCtx.destination);
+  proc.onaudioprocess = async (e)=>{
+    const d = e.inputBuffer.getChannelData(0);
+    buffers.push(new Float32Array(d));
+    const total = buffers.reduce((s,b)=>s+b.length,0);
+    if(total >= audioCtx.sampleRate*1.0){
+      const out = new Float32Array(total); let p=0; for(const b of buffers){ out.set(b,p); p+=b.length } buffers=[];
+      const wavBuf = floatToWavBuffer(out, audioCtx.sampleRate);
+      const blob = new Blob([wavBuf], {type:'audio/wav'});
+      const fd = new FormData(); fd.append('file', blob, 'chunk.wav');
+      status.innerText = 'sending';
+      const res = await fetch('/infer_wav', {method:'POST', body: fd});
+      const j = await res.json();
+      log('server: ' + JSON.stringify(j));
+      status.innerText = 'running';
+    }
+  };
+  document.getElementById('start').disabled = true; document.getElementById('stop').disabled = false; status.innerText='running';
+};
+document.getElementById('stop').onclick = ()=>{ if(proc){ proc.disconnect(); proc=null } if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null } document.getElementById('start').disabled=false; document.getElementById('stop').disabled=true; status.innerText='idle'; log('stopped'); }
+</script>
+</body></html>

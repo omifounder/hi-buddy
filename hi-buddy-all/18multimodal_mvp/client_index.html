@@ -1,0 +1,107 @@
+\
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Multimodal MVP Client</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>body{font-family:Arial;margin:12px}video{width:320px;border:1px solid #ddd}#log{white-space:pre-wrap;background:#f4f6fb;padding:8px;border-radius:6px}</style>
+</head><body>
+<h2>Multimodal MVP Client</h2>
+<video id="localVideo" autoplay muted playsinline></video>
+<div>
+  <h4>SER (speech)</h4>
+  <p id="serLabel">—</p>
+  <canvas id="serChart" width="400" height="100"></canvas>
+</div>
+<div>
+  <h4>FER (face)</h4>
+  <p id="ferLabel">—</p>
+</div>
+<div>
+  <button id="startBtn">Start Session</button>
+  <button id="stopBtn" disabled>Stop</button>
+</div>
+<pre id="log"></pre>
+
+<script>
+let pc, dc, localStream, audioCtx, proc, buffers=[], serData=[];
+const logEl = document.getElementById('log'), serLabel = document.getElementById('serLabel'), ferLabel = document.getElementById('ferLabel');
+
+function log(msg){ logEl.textContent = new Date().toISOString() + ' ' + msg + '\\n' + logEl.textContent; }
+
+async function startSession(){
+  document.getElementById('startBtn').disabled = true; document.getElementById('stopBtn').disabled = false;
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('mvp_dc');
+  dc.onopen = ()=> log('DataChannel open');
+  dc.onmessage = (e)=> {
+    try{
+      const obj = JSON.parse(e.data);
+      if(obj.type === 'SER'){ const r = obj.result; serLabel.innerText = r.label + ' (' + (r.confidence*100).toFixed(1) + '%)'; serData.push(r.confidence); updateChart(); }
+      if(obj.type === 'FER'){ const r = obj.result; ferLabel.innerText = r.label + ' (' + (r.confidence*100).toFixed(1) + '%)'; }
+    }catch(err){ log('dc parse err ' + err) }
+  };
+
+  // capture
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true, video:true});
+  document.getElementById('localVideo').srcObject = localStream;
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  // intercept audio and send WAV chunks over DC every 1s
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(localStream);
+  proc = audioCtx.createScriptProcessor(4096,1,1);
+  src.connect(proc); proc.connect(audioCtx.destination);
+  proc.onaudioprocess = (e)=>{
+    const d = e.inputBuffer.getChannelData(0);
+    buffers.push(new Float32Array(d));
+    const total = buffers.reduce((s,b)=>s+b.length,0);
+    if(total >= audioCtx.sampleRate*1.0){
+      const out = new Float32Array(total); let p=0; for(const b of buffers){ out.set(b,p); p+=b.length } buffers=[];
+      // convert to WAV bytes (simple helper)
+      const wav = floatToWavBuffer(out, audioCtx.sampleRate);
+      if(dc && dc.readyState === 'open'){
+        try{ dc.send(wav); log('sent WAV chunk ('+wav.byteLength+' bytes)'); } catch(e){ log('dc send err '+e) }
+      }
+    }
+  };
+
+  // offer/answer
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type})});
+  const ans = await resp.json();
+  await pc.setRemoteDescription({type:ans.type, sdp:ans.sdp});
+  log('Session started');
+}
+
+function floatToWavBuffer(float32Array, sampleRate){
+  const l = float32Array.length;
+  const buffer = new ArrayBuffer(44 + l*2);
+  const view = new DataView(buffer);
+  function writeString(view, offset, string){ for(let i=0;i<string.length;i++) view.setUint8(offset+i, string.charCodeAt(i)) }
+  writeString(view,0,'RIFF'); view.setUint32(4,36 + l*2, true); writeString(view,8,'WAVE'); writeString(view,12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true); view.setUint32(28,sampleRate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true); writeString(view,36,'data');
+  view.setUint32(40,l*2,true);
+  let offset=44;
+  for(let i=0;i<l;i++){ let s=Math.max(-1,Math.min(1,float32Array[i])); view.setInt16(offset, s<0? s*0x8000 : s*0x7FFF, true); offset+=2 }
+  return buffer;
+}
+
+document.getElementById('startBtn').addEventListener('click', startSession);
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  if(proc){ proc.disconnect(); proc=null } if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null } if(pc){ pc.close(); pc=null } document.getElementById('startBtn').disabled=false; document.getElementById('stopBtn').disabled=true; log('stopped')
+});
+
+// simple chart for SER confidences
+let chart=null;
+function updateChart(){
+  if(!chart){
+    const ctx = document.getElementById('serChart').getContext('2d');
+    chart = new Chart(ctx, { type:'line', data:{labels: Array(50).fill(''), datasets:[{label:'SER confidence', data: serData, borderColor:'rgb(75,192,192)'}]}, options:{animation:false, scales:{y:{min:0,max:1}}} });
+  } else {
+    chart.data.datasets[0].data = serData.slice(-50);
+    chart.update();
+  }
+}
+</script>
+</body></html>

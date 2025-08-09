@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Mobile Assistant Web</title></head>
+<body><h2>Mobile Assistant - Web Demo</h2>
+<button id="rec">Record 2s & Send</button><pre id="out"></pre>
+<script>
+async function recordAndSend(){
+  const s = await navigator.mediaDevices.getUserMedia({audio:true});
+  const mr = new MediaRecorder(s);
+  let c=[];
+  mr.ondataavailable = e=>c.push(e.data);
+  mr.start(); await new Promise(r=>setTimeout(r,2000)); mr.stop();
+  await new Promise(r=>mr.onstop=r);
+  const blob = new Blob(c,{type:'audio/webm'});
+  const fd = new FormData(); fd.append('file', blob, 'rec.webm');
+  const res = await fetch('http://localhost:8000/infer_wav', {method:'POST', body: fd});
+  const j = await res.json(); document.getElementById('out').innerText = JSON.stringify(j,null,2);
+}
+document.getElementById('rec').onclick = recordAndSend;
+</script></body></html>

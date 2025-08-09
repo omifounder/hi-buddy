@@ -1,0 +1,56 @@
+test_suites:
+- name: MVP
+  tests:
+  - id: MVP-1
+    description: Verify WebRTC connection establishes successfully
+    expected_result: Peer connection created and ICE candidates exchanged
+    failure_mode: Connection timeout or ICE failure
+    fallback: Retry connection up to 3 times before notifying user
+  - id: MVP-2
+    description: Test real-time audio streaming from client to server
+    expected_result: Continuous PCM/WAV chunks received at server
+    failure_mode: Packet loss or corrupted audio frames
+    fallback: Request retransmission; if not possible, notify degraded mode
+  - id: MVP-3
+    description: Run SER (Speech Emotion Recognition) on received audio
+    expected_result: Emotion detected with confidence score > 0.7
+    failure_mode: Model crash, low confidence, or empty input
+    fallback: Return 'neutral' emotion and log incident
+  - id: MVP-4
+    description: Generate LLM response based on emotion and transcript
+    expected_result: Context-aware empathetic text reply
+    failure_mode: LLM timeout or response too short
+    fallback: Return generic empathetic fallback message
+  - id: MVP-5
+    description: Stream TTS output to client
+    expected_result: Continuous audio playback without buffer underruns
+    failure_mode: TTS model error or playback failure
+    fallback: Send text-only output to client
+- name: Full System
+  tests:
+  - id: FS-1
+    description: Verify multimodal input sync (text, audio, video)
+    expected_result: All modalities timestamp aligned
+    failure_mode: Desync between streams
+    fallback: Drop late frames; resync on next segment
+  - id: FS-2
+    description: Run emotion fusion model across modalities
+    expected_result: Unified emotion vector generated
+    failure_mode: One or more modality models fail
+    fallback: Use available modalities to infer partial emotion score
+  - id: FS-3
+    description: Invoke LLM (Gemma or other) with context + memory
+    expected_result: Contextual, empathetic multimodal response
+    failure_mode: Model crash or out-of-memory
+    fallback: Switch to smaller quantized backup model
+  - id: FS-4
+    description: Generate coordinated multimodal output (text, TTS, optional facial
+      avatar)
+    expected_result: Smoothly synchronized outputs
+    failure_mode: TTS or avatar generator failure
+    fallback: Send text + audio only
+  - id: FS-5
+    description: Stream outputs back to client in real-time
+    expected_result: Low-latency synchronized delivery
+    failure_mode: Network jitter or packet loss
+    fallback: Switch to buffered mode with slight delay

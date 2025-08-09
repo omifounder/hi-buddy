@@ -1,0 +1,8 @@
+{
+  "short_name": "MMA",
+  "name": "Mobile Multimodal Assistant",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "description": "PWA for multimodal assistant"
+}

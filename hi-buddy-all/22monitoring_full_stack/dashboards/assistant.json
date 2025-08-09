@@ -1,0 +1,37 @@
+{
+  "id": null,
+  "uid": null,
+  "title": "Assistant - Live Metrics",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "SER Confidence",
+      "targets": [
+        {
+          "expr": "ser_confidence"
+        }
+      ],
+      "id": 1
+    },
+    {
+      "type": "graph",
+      "title": "SER Inference Time (ms)",
+      "targets": [
+        {
+          "expr": "ser_infer_time_ms"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "type": "graph",
+      "title": "Offers Received",
+      "targets": [
+        {
+          "expr": "webrtc_offer_received"
+        }
+      ],
+      "id": 3
+    }
+  ]
+}

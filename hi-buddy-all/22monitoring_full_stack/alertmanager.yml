@@ -1,0 +1,26 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default'
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: 'default'
+    slack_configs:
+      - send_resolved: true
+        api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        text: '{{ .CommonAnnotations.summary }} - {{ .CommonAnnotations.description }}'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+        send_resolved: true
+    email_configs:
+      - to: 'you@example.com'
+        from: 'monitor@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'monitor@example.com'
+        auth_password: 'PASSWORD'
+        send_resolved: true

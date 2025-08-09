@@ -1,0 +1,1 @@
+Full mobile app placeholder (Capacitor) - integrate on-device models and WebRTC.

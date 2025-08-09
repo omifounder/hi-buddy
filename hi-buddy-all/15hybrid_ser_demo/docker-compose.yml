@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  orchestrator:
+    build: ./server
+    ports:
+      - "8000:8000"
+    environment:
+      - INFERENCE_ROUTER_MODE=hybrid
+      - ONNX_MODEL_PATH=/models/ser/model.onnx
+      - CLOUD_ENDPOINT=
+    volumes:
+      - ./server/models:/models:ro

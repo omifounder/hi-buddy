@@ -1,0 +1,1 @@
+Full desktop app placeholder. Implement Electron client connecting to /offer and WebRTC flows.

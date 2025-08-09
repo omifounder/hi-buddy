@@ -1,0 +1,23 @@
+name: Build iOS Capacitor App
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          npm ci
+      - name: Build web assets
+        run: |
+          npm run build || echo "no build step"
+      - name: Copy to Capacitor and prepare iOS
+        run: |
+          npx cap copy ios || true
+          echo "Open Xcode to complete build (manual codesign step required)"

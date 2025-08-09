@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+prometheus-client
+soundfile
+resampy
+onnxruntime
+torch
+torchvision
+transformers

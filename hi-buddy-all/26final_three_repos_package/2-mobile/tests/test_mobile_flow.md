@@ -1,0 +1,1 @@
+Manual test: open web/index.html on mobile, record audio and verify infer_wav response.

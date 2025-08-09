@@ -1,0 +1,42 @@
+\
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Option B - Audio SER + TTS</title></head><body>
+<h3>Option B - Audio SER + Chunked TTS</h3>
+<button id="start">Start</button>
+<div>SER: <span id="serLabel">-</span> (<span id="serConf">-</span>)</div>
+<div>Buffer bytes: <span id="buf">0</span></div>
+<script>
+let pc=null, dc=null, localStream=null;
+document.getElementById('start').onclick = async () => {
+  if (pc) return;
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('data');
+  dc.onopen = ()=>console.log('dc open');
+  dc.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'ser_result') {
+      document.getElementById('serLabel').innerText = msg.label;
+      document.getElementById('serConf').innerText = (msg.confidence||0).toFixed(2);
+      document.getElementById('buf').innerText = msg.audio_buffer_bytes||0;
+    } else if (msg.type === 'llm_reply') {
+      const p = document.createElement('p'); p.innerHTML = '<b>Assistant:</b> '+msg.text; document.body.appendChild(p);
+      // speak with browser TTS as fallback if audio track not present
+      if ('speechSynthesis' in window) {
+        const ut = new SpeechSynthesisUtterance(msg.text); window.speechSynthesis.speak(ut);
+      }
+    }
+  };
+  pc.ontrack = ev => {
+    const a = document.createElement('audio'); a.autoplay = true; a.srcObject = ev.streams[0]; document.body.appendChild(a);
+  };
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type})});
+  const ans = await resp.json();
+  await pc.setRemoteDescription(ans);
+  console.log('connected');
+};
+</script>
+</body></html>

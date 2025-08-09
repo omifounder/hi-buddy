@@ -1,0 +1,1 @@
+Desktop repo: Electron renderer + Python server. Run Python server then open renderer in Electron or browser for demo.

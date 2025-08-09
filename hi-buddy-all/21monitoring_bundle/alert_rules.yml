@@ -1,0 +1,30 @@
+groups:
+  - name: assistant_alerts
+    interval: 30s
+    rules:
+      - alert: SERConfidenceDrop
+        expr: avg_over_time(ser_confidence[5m]) < 0.5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SER confidence dropped below 0.5"
+          description: "Average SER confidence over the last 5 minutes is low — check microphone quality or model health."
+
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, sum(rate(ser_infer_time_ms[5m])) by (le)) > 2000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High request latency (p95)"
+          description: "95th percentile request latency is above 2000ms for 2 minutes."
+
+      - alert: NoActiveSessions
+        expr: absent(webrtc_offer_received)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No WebRTC offers observed"
+          description: "No webRTC offers detected in the last 10 minutes."

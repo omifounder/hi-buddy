@@ -1,0 +1,42 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": null,
+    "title": "Assistant Monitoring",
+    "schemaVersion": 27,
+    "version": 1,
+    "panels": [
+      {
+        "type": "graph",
+        "title": "SER Confidence (latest)",
+        "targets": [
+          {
+            "expr": "ser_confidence"
+          }
+        ],
+        "id": 1
+      },
+      {
+        "type": "graph",
+        "title": "SER Inference Time (ms)",
+        "targets": [
+          {
+            "expr": "ser_infer_time_ms"
+          }
+        ],
+        "id": 2
+      },
+      {
+        "type": "graph",
+        "title": "WebRTC Offers Received (count)",
+        "targets": [
+          {
+            "expr": "webrtc_offer_received"
+          }
+        ],
+        "id": 3
+      }
+    ]
+  },
+  "overwrite": false
+}

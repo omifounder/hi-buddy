@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+aiortc
+av
+numpy
+soundfile
+resampy
+onnxruntime
+pyttsx3
+gTTS

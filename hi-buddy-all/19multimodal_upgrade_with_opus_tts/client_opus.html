@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><meta charset='utf-8'/><title>Multimodal Client - Opus DC</title>
+<style>body{font-family:Arial;margin:12px}video{width:320px;border:1px solid #ddd}#log{white-space:pre-wrap;background:#f4f6fb;padding:8px;border-radius:6px}</style>
+</head><body>
+<h2>Multimodal Client — Opus over DataChannel</h2>
+<video id="localVideo" autoplay muted playsinline></video>
+<div><h4>SER</h4><p id="serLabel">—</p></div>
+<div><h4>FER</h4><p id="ferLabel">—</p></div>
+<button id="startBtn">Start</button><button id="stopBtn" disabled>Stop</button>
+<pre id="log"></pre>
+
+<script>
+let pc, dc, localStream, recorder;
+
+function log(msg){ document.getElementById('log').textContent = new Date().toISOString() + ' ' + msg + '\n' + document.getElementById('log').textContent; }
+
+async function start(){
+  document.getElementById('startBtn').disabled=true; document.getElementById('stopBtn').disabled=false;
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('opus_dc');
+  dc.onopen = ()=> log('DC open'); dc.onmessage = (e)=>{ try{ const obj = JSON.parse(e.data); if(obj.type==='SER'){ document.getElementById('serLabel').innerText = obj.result.label + ' (' + (obj.result.confidence*100).toFixed(1) + '%)'; } if(obj.type==='FER'){ document.getElementById('ferLabel').innerText = obj.result.label; } if(obj.type==='TTS'){ log('TTS track added on server'); } }catch(err){ log('dc parse err '+err) } };
+
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true, video:true});
+  document.getElementById('localVideo').srcObject = localStream;
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  // create offer
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type})});
+  const ans = await resp.json();
+  await pc.setRemoteDescription({type: ans.type, sdp: ans.sdp});
+  log('WebRTC connected');
+
+  // start MediaRecorder to capture Opus/webm blobs and send over DC
+  const options = { mimeType: 'audio/webm;codecs=opus' };
+  try{
+    recorder = new MediaRecorder(localStream, options);
+  }catch(e){
+    log('MediaRecorder construction failed, trying default: ' + e);
+    recorder = new MediaRecorder(localStream);
+  }
+  recorder.ondataavailable = (ev)=>{
+    if(ev.data && ev.data.size > 0){
+      ev.data.arrayBuffer().then(buf => {
+        if(dc && dc.readyState === 'open'){
+          try{ dc.send(buf); log('sent blob ' + buf.byteLength); } catch(e){ log('dc send err ' + e); }
+        }
+      });
+    }
+  };
+  recorder.start(1000); // emit every 1s
+  log('recorder started');
+}
+
+document.getElementById('startBtn').addEventListener('click', start);
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  if(recorder && recorder.state !== 'inactive') recorder.stop();
+  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  if(pc){ pc.close(); pc=null; }
+  document.getElementById('startBtn').disabled=false; document.getElementById('stopBtn').disabled=true;
+  log('stopped');
+});
+</script>
+</body></html>

@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Advanced Multimodal Assistant</title></head><body>
+<h1>Multimodal Assistant (Local) - UI</h1>
+<video id="video" autoplay muted style="width:480px;height:360px;border:1px solid #ccc"></video><br>
+<textarea id="text" rows="3" cols="60" placeholder="Type message..."></textarea><br>
+<button id="send">Send</button>
+<label>LLM: <select id="llm"><option value="gemma">Gemma</option><option value="mistral">Mistral</option><option value="vicuna">Vicuna</option></select></label>
+<script>
+const ws = new WebSocket('ws://' + location.host + '/ws');
+ws.onmessage = e => {
+  const d = JSON.parse(e.data);
+  alert('Assistant: ' + d.reply);
+};
+async function start() {
+  const s = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  document.getElementById('video').srcObject = s;
+  // minimal audio capture: record 1.5s clips periodically
+  const mediaRecorder = new MediaRecorder(s.getAudioTracks()[0] ? s : s, {mimeType:'audio/webm'});
+  let chunks = [];
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  setInterval(() => {
+    if(mediaRecorder.state === 'inactive') { chunks=[]; mediaRecorder.start(); setTimeout(()=> mediaRecorder.stop(),1500); }
+  },3000);
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, {type:'audio/webm'});
+    const arrayBuffer = await blob.arrayBuffer();
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    window._latestAudioB64 = b64;
+  };
+}
+start();
+document.getElementById('send').onclick = () => {
+  const text = document.getElementById('text').value;
+  const frame = (function(){ try{ const v=document.getElementById('video'); const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; c.getContext('2d').drawImage(v,0,0); return c.toDataURL('image/jpeg').split(',')[1]; }catch(e){return null;} })();
+  ws.send(JSON.stringify({text:text, audio: window._latestAudioB64, frame: frame, llm_model: document.getElementById('llm').value}));
+};
+// TTS WebRTC: create offer to /offer when user clicks speak button
+async function startTTS(text){
+  const pc = new RTCPeerConnection();
+  pc.ontrack = e => { const audio = document.createElement('audio'); audio.autoplay=true; audio.srcObject = e.streams[0]; document.body.appendChild(audio); };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sdp:offer.sdp,type:offer.type,text:text})});
+  const ans = await resp.json();
+  await pc.setRemoteDescription({sdp: ans.sdp, type: ans.type});
+}
+// Example: call startTTS('Hello') after receiving assistant reply to hear TTS.
+</script>
+</body></html>

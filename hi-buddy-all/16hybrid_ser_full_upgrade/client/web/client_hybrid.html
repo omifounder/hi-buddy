@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset='utf-8'/><title>SER Hybrid Client</title>
+<style>body{font-family:Arial;margin:12px}button{padding:8px 12px;margin-right:8px}#log{white-space:pre-wrap;background:#f4f6fb;padding:8px;border-radius:8px;min-height:120px}</style>
+</head><body>
+<h3>SER Hybrid Client — local TFJS / REST / WebRTC-DC</h3>
+<select id="path"><option value="local">Local TFJS</option><option value="rest">REST Server</option><option value="webrtc">WebRTC DC</option></select>
+<button id="start">Start</button><button id="stop" disabled>Stop</button>
+<div id="status">idle</div>
+<pre id="log"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0"></script>
+let stream, audioCtx, proc, buffers=[], pc=null, dc=null;
+
+function log(s){ document.getElementById('log').textContent = new Date().toISOString() + ' ' + s + '\n' + document.getElementById('log').textContent; }
+
+function floatToWavBuffer(float32Array, sampleRate){
+  const l = float32Array.length;
+  const buffer = new ArrayBuffer(44 + l*2);
+  const view = new DataView(buffer);
+  function writeString(view, offset, string){ for(let i=0;i<string.length;i++) view.setUint8(offset+i, string.charCodeAt(i)); }
+  writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + l*2, true); writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate*2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeString(view,36,'data');
+  view.setUint32(40, l*2, true);
+  let offset=44;
+  for(let i=0;i<l;i++){ let s=Math.max(-1,Math.min(1,float32Array[i])); view.setInt16(offset, s<0? s*0x8000 : s*0x7FFF, true); offset+=2; }
+  return buffer;
+}
+
+async function sendToServerBlob(buf){
+  const b = new Blob([buf], {type:'audio/wav'});
+  const form = new FormData(); form.append('file', b, 'chunk.wav');
+  const resp = await fetch('/infer_wav', {method:'POST', body: form});
+  const j = await resp.json(); log('server REST result: ' + JSON.stringify(j));
+}
+
+async function setupWebRTC() {
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('audio_dc');
+  dc.onopen = ()=> log('DataChannel open');
+  dc.onmessage = (e)=> log('DC msg: ' + e.data);
+  const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sdp: offer.sdp, type: offer.type})});
+  const ans = await resp.json(); await pc.setRemoteDescription(ans);
+  log('WebRTC established');
+}
+
+document.getElementById('start').onclick = async ()=>{
+  document.getElementById('start').disabled=true; document.getElementById('stop').disabled=false;
+  const path = document.getElementById('path').value; document.getElementById('status').innerText = 'starting ('+path+')';
+  stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
+  proc = audioCtx.createScriptProcessor(4096,1,1);
+  src.connect(proc); proc.connect(audioCtx.destination);
+  if(path === 'webrtc'){ await setupWebRTC(); }
+  proc.onaudioprocess = async (e)=>{
+    const d = e.inputBuffer.getChannelData(0); buffers.push(new Float32Array(d));
+    const total = buffers.reduce((s,b)=>s+b.length,0);
+    if(total >= audioCtx.sampleRate*1.0){
+      const out = new Float32Array(total); let p=0; for(const b of buffers){ out.set(b,p); p+=b.length;} buffers=[];
+      if(path === 'rest'){ const buf = floatToWavBuffer(out, audioCtx.sampleRate); await sendToServerBlob(buf); }
+      else if(path === 'webrtc'){ if(dc && dc.readyState === 'open'){ const buf = floatToWavBuffer(out, audioCtx.sampleRate); dc.send(buf); log('sent raw wav over DC'); } }
+      else if(path === 'local'){ log('local TFJS inference placeholder - implement model load & predict'); }
+    }
+  };
+  log('started capture');
+};
+
+document.getElementById('stop').onclick = ()=>{
+  if(proc){ proc.disconnect(); proc=null;} if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null;} if(pc){ pc.close(); pc=null; dc=null;} document.getElementById('start').disabled=false; document.getElementById('stop').disabled=true; document.getElementById('status').innerText='idle'; log('stopped');
+};
+</script>
+</body></html>

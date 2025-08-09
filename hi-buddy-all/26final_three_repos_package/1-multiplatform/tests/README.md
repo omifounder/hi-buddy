@@ -1,0 +1,1 @@
+Run pytest targeting the server endpoints.
